@@ -52,7 +52,6 @@ export const handler = async (
 
     // Upload image to S3
     let imageUrl: string;
-
     try {
       console.log("Starting S3 upload process...");
       console.log("Bucket name:", PRODUCT_IMAGES_BUCKET_NAME);
@@ -99,10 +98,69 @@ export const handler = async (
       imageUrl = `https://${PRODUCT_IMAGES_BUCKET_NAME}.s3.amazonaws.com/${s3Key}`;
 
       console.log("Image uploaded to S3 successfully:", imageUrl);
-    } catch (error) {}
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ message: "create product" }),
+    } catch (s3Error: any) {
+      console.error("Error uploading image to S3:", s3Error);
+      console.error("S3 Error details:", {
+        message: s3Error.message,
+        code: s3Error.code,
+        statusCode: s3Error.statusCode,
+        requestId: s3Error.requestId,
+        bucketName: PRODUCT_IMAGES_BUCKET_NAME,
+      });
+      console.log("S3 Error:", s3Error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          message: "Failed to upload image",
+          error: s3Error.message,
+        }),
+      };
+    }
+
+    // Create product record for DynamoDB
+    const productRecord: ProductRecord = {
+      id: productId,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      imageUrl: imageUrl,
+      createdAt: timestamp,
+      updatedAt: timestamp,
     };
-  } catch (error) {}
+
+    // Store product in DynamoDB
+    try {
+      await docClient.send(
+        new PutCommand({
+          TableName: PRODUCTS_TABLE_NAME,
+          Item: productRecord,
+        })
+      );
+      console.log("Product stored in DynamoDB:", productId);
+    } catch (dynamoError) {
+      console.error("Error storing product in DynamoDB:", dynamoError);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          message: "Failed to store product",
+        }),
+      };
+    }
+
+    return {
+      statusCode: 201,
+      body: JSON.stringify({
+        message: "Product created successfully",
+        product: productRecord,
+      }),
+    };
+  } catch (error) {
+    console.error("Error processing request:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        message: "Internal server error",
+      }),
+    };
+  }
 };
