@@ -31,8 +31,25 @@ export class ProjectManagementStack extends cdk.Stack {
         bucketName: `${this.stackName.toLowerCase()}-images`,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
+        blockPublicAccess: new s3.BlockPublicAccess({
+          blockPublicAcls: true,
+          blockPublicPolicy: false,
+          ignorePublicAcls: true,
+          restrictPublicBuckets: false,
+        }),
       }
     );
+
+    // Add bucket policy for fine-grained public access to product images only
+    productImagesBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.AnyPrincipal()],
+        actions: ["s3:GetObject"],
+        resources: [`${productImagesBucket.bucketArn}/products/*`],
+      })
+    );
+
     // Create Lambda functions for products
     const createProductLambda = new NodejsFunction(
       this,
