@@ -55,7 +55,6 @@ export const handler = async (
       }
 
       product = getResult.Item as ProductRecord;
-   
     } catch (dynamoError) {
       return {
         statusCode: 500,
@@ -87,15 +86,40 @@ export const handler = async (
 
     // Delete product from DynamoDB
     try {
-      
-    } catch (error) {
-      
+      await docClient.send(
+        new DeleteCommand({
+          TableName: PRODUCTS_TABLE_NAME,
+          Key: { id: productId },
+        })
+      );
+
+      console.log("Product deleted from DynamoDB:", productId);
+    } catch (dynamoError) {
+      console.error("Error deleting product from DynamoDB:", dynamoError);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          message: "Failed to delete product",
+        }),
+      };
     }
 
-    // END
+    // Return success response
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "delete product" }),
+      body: JSON.stringify({
+        message: "Product deleted successfully",
+        productId: productId,
+      }),
     };
-  } catch (error) {}
+  } catch (error) {
+    console.error("Error processing request:", error);
+
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        message: "Internal server error",
+      }),
+    };
+  }
 };
